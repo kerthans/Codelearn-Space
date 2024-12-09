@@ -5,4 +5,4 @@ do more，learn more
 
 [查看我的《纬度狂想曲》](./source/txtgame/SpaceGame.java)
 
-[计算机图像学](./Code-img/README.md)
+[计算机图像学的-3D量子隧道渲染](./Code-img/README.md)

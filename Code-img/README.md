@@ -16,7 +16,7 @@
 - 实时参数调节
 - 性能优化的渲染管线
 
-![项目截图](codelearn/Code-img/placeholder_for_screenshot.png)
+![项目截图](placeholder_for_screenshot.png)
 
 ## 设计
 

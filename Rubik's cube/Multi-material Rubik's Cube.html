@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Magical Light Rubik's Cube</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; }
+        canvas { display: block; }
+        #gui { position: absolute; top: 10px; right: 10px; }
+        #overlay {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #FFFFFF;
+            text-align: center;
+            font-family: Arial, sans-serif;
+            z-index: 1;
+        }
+        #overlay h1 {
+            margin: 0;
+            font-size: 48px;
+            text-shadow: 2px 2px 4px #000000;
+        }
+        #overlay p {
+            margin: 10px 0 0 0;
+            font-size: 18px;
+            max-width: 800px;
+            text-shadow: 1px 1px 2px #000000;
+        }
+    </style>
+</head>
+<body>
+    <div id="overlay">
+        <h1>Magical Light Rubik's Cube</h1>
+        <p>Experience the mesmerizing rotation and vibrant colors of the enhanced magical light Rubik's Cube. Interact with it using your mouse to explore every angle with smooth inertia-based rotation.</p>
+    </div>
+
+    <!-- Three.js 和 dat.GUI 库 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js"></script>
+    <script>
+        // 场景、相机和渲染器初始化
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(20, 20, 20);  
+        camera.lookAt(0, 0, 0);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.body.appendChild(renderer.domElement);
+
+        // 星空背景
+        const starGeometry = new THREE.BufferGeometry();
+        const starVertices = [];
+        for(let i = 0; i < 2000; i++) {
+            const x = THREE.MathUtils.randFloatSpread(2000);
+            const y = THREE.MathUtils.randFloatSpread(2000);
+            const z = THREE.MathUtils.randFloatSpread(2000);
+            starVertices.push(x, y, z);
+        }
+        starGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starVertices, 3));
+        const starMaterial = new THREE.PointsMaterial({ 
+            color: 0xFFFFFF,
+            size: 3,  // 粒子大小
+            transparent: true,
+            opacity: 1.0,  // 不透明度
+            sizeAttenuation: true
+        });
+        const stars = new THREE.Points(starGeometry, starMaterial);
+        scene.add(stars);
+
+        // 展台
+        const platformGeometry = new THREE.CylinderGeometry(8, 10, 0.8, 32);
+        const platformMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0x444444,
+            shininess: 100,
+            specular: 0x444444
+        });
+        const platform = new THREE.Mesh(platformGeometry, platformMaterial);
+        platform.position.y = -6;  
+        platform.receiveShadow = true;
+        scene.add(platform);
+
+        // 照明系统
+        const spotLight = new THREE.SpotLight(0xffffff, 2);
+        spotLight.position.set(20, 40, 20);
+        spotLight.angle = 0.3;
+        spotLight.penumbra = 0.2;
+        spotLight.decay = 2;
+        spotLight.distance = 200;
+        spotLight.castShadow = true;
+        spotLight.shadow.mapSize.width = 2048;
+        spotLight.shadow.mapSize.height = 2048;
+        scene.add(spotLight);
+
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+        scene.add(ambientLight);
+
+        // 魔方参数调整
+        const cubeSize = 4;  // 魔方尺寸
+        const gap = 0.2;     // 间隙
+        const rubiksGroup = new THREE.Group();
+        rubiksGroup.position.y = 8;  // 魔方位置
+        scene.add(rubiksGroup);
+
+        // 定义六种不同的材质
+        const materials = {
+            // 金属材质 - 明亮的银色金属效果
+            metal: new THREE.MeshStandardMaterial({
+                color: 0xCCCCCC,          
+                metalness: 0.9,           
+                roughness: 0.2,           
+                emissive: 0x111111,
+                emissiveIntensity: 0.2,
+                side: THREE.FrontSide
+            }),
+
+            // 玻璃材质 - 半透明蓝色效果
+            glass: new THREE.MeshPhysicalMaterial({
+                color: 0x00ffff,          
+                metalness: 0.2,
+                roughness: 0.1,
+                transmission: 0.8,        
+                opacity: 0.7,
+                transparent: true,
+                side: THREE.FrontSide
+            }),
+
+            // 发光材质 - 明亮的黄色光芒
+            glow: new THREE.MeshStandardMaterial({
+                color: 0xffff00,          
+                metalness: 0.1,
+                roughness: 0.2,
+                emissive: 0xffff00,
+                emissiveIntensity: 5,   
+                side: THREE.FrontSide
+            }),
+
+            // 淬火金属 - 深色金属效果
+            quenchedMetal: new THREE.MeshStandardMaterial({
+                color: 0x666666,          
+                metalness: 0.8,
+                roughness: 0.3,
+                emissive: 0x222222,
+                emissiveIntensity: 0.4,   
+                side: THREE.FrontSide
+            }),
+
+            leather: new THREE.MeshStandardMaterial({
+                color: 0xFF0000,          
+                metalness: 0.8,           
+                roughness: 0.9,           
+                emissive: 0x0000aa,       
+                emissiveIntensity: 0.4,   
+                side: THREE.FrontSide
+            }),
+
+            wood: new THREE.MeshStandardMaterial({
+                color: 0xff1493,          
+                metalness: 0.7,           
+                roughness: 0.3,           
+                emissive: 0x4800ff,       
+                emissiveIntensity: 0.6,   
+                side: THREE.FrontSide
+            })
+        }
+
+        // 标准魔方颜色映射到材质
+        const faceMaterialMapping = {
+            'U': materials.glow,          // 上 - 炫光
+            'D': materials.wood,          // 下 - 木头
+            'F': materials.glass,         // 前 - 玻璃
+            'B': materials.leather,       // 后 - 皮革
+            'L': materials.metal,         // 左 - 金属
+            'R': materials.quenchedMetal  // 右 - 淬火金属
+        };
+
+        const geometry = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize);
+        const edges = new THREE.EdgesGeometry(geometry);
+        const lineMaterial = new THREE.LineBasicMaterial({ 
+            color: 0x000000, 
+            linewidth: 2,
+            transparent: true,
+            opacity: 0.8 
+        });
+
+        const edgeGlowGroup = new THREE.Group();
+        rubiksGroup.add(edgeGlowGroup);
+
+        for(let x = -1; x <= 1; x++) {
+            for(let y = -1; y <= 1; y++) {
+                for(let z = -1; z <= 1; z++) {
+                    // 为每个面分配对应的材质
+                    const cubeMaterials = [
+                        faceMaterialMapping['F'], // 前
+                        faceMaterialMapping['B'], // 后
+                        faceMaterialMapping['U'], // 上
+                        faceMaterialMapping['D'], // 下
+                        faceMaterialMapping['L'], // 左
+                        faceMaterialMapping['R']  // 右
+                    ];
+
+                    const cube = new THREE.Mesh(geometry, cubeMaterials);
+                    cube.position.set(
+                        x * (cubeSize + gap),
+                        y * (cubeSize + gap),
+                        z * (cubeSize + gap)
+                    );
+                    cube.castShadow = true;
+                    cube.receiveShadow = true;
+                    rubiksGroup.add(cube);
+
+                    // 边缘线
+                    const edgesLines = new THREE.LineSegments(edges, lineMaterial);
+                    cube.add(edgesLines);
+                    
+                    // 发光材质
+                    const glowMaterial = new THREE.LineBasicMaterial({
+                        color: 0xCB4335, // 发光颜色
+                        linewidth: 3,
+                        transparent: true,
+                        opacity: 0.6,
+                        blending: THREE.AdditiveBlending
+                    });
+
+                    // 发光边缘线
+                    const glowLines = new THREE.LineSegments(edges, glowMaterial);
+                    cube.add(glowLines);
+
+                    edgeGlowGroup.add(glowLines);
+                    
+                }
+            }
+        }
+
+        // 粒子系统
+        let particleCount = 10000;  // 粒子数量
+        const particlesGeometry = new THREE.BufferGeometry();
+        let positions = new Float32Array(particleCount * 3);
+        let colorsArray = new Float32Array(particleCount * 3);
+        for(let i = 0; i < particleCount; i++) {
+            positions[i * 3] = 0;
+            positions[i * 3 + 1] = 0;
+            positions[i * 3 + 2] = 0;
+            colorsArray[i * 3] = Math.random();     // 随机颜色
+            colorsArray[i * 3 + 1] = Math.random();
+            colorsArray[i * 3 + 2] = Math.random();
+        }
+        particlesGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        particlesGeometry.setAttribute('color', new THREE.BufferAttribute(colorsArray, 3));
+        const particlesMaterial = new THREE.PointsMaterial({
+            vertexColors: true,
+            size: 1.0,  // 粒子大小
+            blending: THREE.AdditiveBlending,
+            transparent: true,
+            opacity: 0.5,  // 不透明度
+            depthWrite: false
+        });
+        const particles = new THREE.Points(particlesGeometry, particlesMaterial);
+        scene.add(particles);
+
+        // 轨迹存储
+        const trailPositions = [];
+        const trailColors = [];  // 存储轨迹颜色
+
+        const gui = new dat.GUI();
+        const params = {
+            autoRotate: true,
+            autoRotateSpeed: 0.01,
+            particleCount: 10000,  
+            trailLength: 200
+        };
+
+        gui.add(params, 'autoRotate').name('Auto Rotate');
+        gui.add(params, 'autoRotateSpeed', 0.0, 0.05).name('Auto Rotate Speed');
+        gui.add(params, 'particleCount', 1000, 20000).step(1000).name('Particle Count').onChange(value => {
+            particleCount = Math.floor(value);
+            const newPositions = new Float32Array(particleCount * 3);
+            const newColors = new Float32Array(particleCount * 3);
+            for(let i = 0; i < particleCount; i++) {
+                newPositions[i * 3] = 0;
+                newPositions[i * 3 + 1] = 0;
+                newPositions[i * 3 + 2] = 0;
+                newColors[i * 3] = Math.random();
+                newColors[i * 3 + 1] = Math.random();
+                newColors[i * 3 + 2] = Math.random();
+            }
+            particlesGeometry.setAttribute('position', new THREE.BufferAttribute(newPositions, 3));
+            particlesGeometry.setAttribute('color', new THREE.BufferAttribute(newColors, 3));
+            particlesGeometry.setDrawRange(0, particleCount);
+            particles.geometry = particlesGeometry;
+        });
+        gui.add(params, 'trailLength', 50, 500).step(50).name('Trail Length');
+
+        // 鼠标控制旋转相关变量
+        let rotationVelocityX = 0;
+        let rotationVelocityY = 0;
+        let mouseDown = false;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+        let lastMoveTime = 0;
+
+        // 鼠标按下事件
+        document.addEventListener('mousedown', (e) => {
+            mouseDown = true;
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+            lastMoveTime = performance.now();
+            rotationVelocityX = 0;
+            rotationVelocityY = 0;
+        });
+
+        // 鼠标松开事件
+        document.addEventListener('mouseup', () => {
+            mouseDown = false;
+        });
+
+        // 鼠标移动事件
+        document.addEventListener('mousemove', (e) => {
+            if(mouseDown) {
+                const currentTime = performance.now();
+                const deltaTime = currentTime - lastMoveTime;
+                const deltaX = e.clientX - lastMouseX;
+                const deltaY = e.clientY - lastMouseY;
+
+                rotationVelocityY = deltaX / deltaTime * 0.1;
+                rotationVelocityX = deltaY / deltaTime * 0.1;
+
+                rubiksGroup.rotation.y += deltaX * 0.005;
+                rubiksGroup.rotation.x += deltaY * 0.005;
+
+                lastMouseX = e.clientX;
+                lastMouseY = e.clientY;
+                lastMoveTime = currentTime;
+
+                // 生成光轨迹粒子
+                const trailPoint = new THREE.Vector3().copy(rubiksGroup.position);
+                trailPoint.applyQuaternion(rubiksGroup.quaternion);
+                trailPositions.push(trailPoint.clone());
+
+                // 添加随机彩色轨迹
+                trailColors.push(new THREE.Color(
+                    Math.random() * 0.5 + 0.5,
+                    Math.random() * 0.5 + 0.5,
+                    Math.random() * 0.5 + 0.5
+                ));
+
+                if(trailPositions.length > particleCount) {
+                    trailPositions.shift();
+                    trailColors.shift();
+                }
+            }
+        }, false);
+
+        // 渲染循环
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // 自动旋转
+            if(params.autoRotate) {
+                rubiksGroup.rotation.y += params.autoRotateSpeed;
+            }
+
+            // 应用惯性旋转
+            rubiksGroup.rotation.x += rotationVelocityX;
+            rubiksGroup.rotation.y += rotationVelocityY;
+
+            // 阻尼效果，逐渐减慢旋转速度
+            rotationVelocityX *= 0.95;
+            rotationVelocityY *= 0.95;
+
+            // 更新粒子系统
+            const positionsArray = particles.geometry.attributes.position.array;
+            const colorsArrayAttr = particles.geometry.attributes.color.array;
+            for(let i = 0; i < particleCount; i++) {
+                if(i < trailPositions.length) {
+                    positionsArray[i * 3] = trailPositions[i].x;
+                    positionsArray[i * 3 + 1] = trailPositions[i].y;
+                    positionsArray[i * 3 + 2] = trailPositions[i].z;
+                    
+                    if(i < trailColors.length) {
+                        colorsArrayAttr[i * 3] = trailColors[i].r;
+                        colorsArrayAttr[i * 3 + 1] = trailColors[i].g;
+                        colorsArrayAttr[i * 3 + 2] = trailColors[i].b;
+                    }
+                } else {
+                    // 隐藏未使用的粒子
+                    positionsArray[i * 3] = 0;
+                    positionsArray[i * 3 + 1] = 0;
+                    positionsArray[i * 3 + 2] = 0;
+                    colorsArrayAttr[i * 3] = 0;
+                    colorsArrayAttr[i * 3 + 1] = 0;
+                    colorsArrayAttr[i * 3 + 2] = 0;
+                }
+            }
+            particles.geometry.attributes.position.needsUpdate = true;
+            particles.geometry.attributes.color.needsUpdate = true;
+
+            // 动态星空背景
+            stars.rotation.x += 0.0002;
+            stars.rotation.y += 0.0002;
+
+            // 限制轨迹长度
+            while(trailPositions.length > params.trailLength) {
+                trailPositions.shift();
+                trailColors.shift();
+            }
+
+
+            // 旋转发光边缘组以产生动态光效
+            edgeGlowGroup.rotation.x += 1;
+            edgeGlowGroup.rotation.y += 1;
+
+            renderer.render(scene, camera);
+        }
+
+        // 窗口大小调整
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    </script>
+</body>
+</html>
